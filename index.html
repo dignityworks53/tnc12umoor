@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TNC Registration</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f2ea; --card:#fff; --ink:#1f2a2a; --muted:#6b7473; --line:#e6dfd2;
+    --brand:#0f5c4d; --brand-2:#0b4a3e; --gold:#b8892f; --soft:#eef5f2;
+    --err:#a3352b; --err-bg:#fbeceb; --wa:#1fa855;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:480px;margin:0 auto;padding:28px 16px 48px}
+  header{text-align:center;margin-bottom:22px}
+  .mark{width:46px;height:46px;margin:0 auto 12px;border-radius:50%;border:1.5px solid var(--gold);display:grid;place-items:center;color:var(--gold);font-family:Lora,serif;font-weight:600;font-size:15px;letter-spacing:.5px}
+  h1{font-family:Lora,serif;font-weight:600;font-size:26px;line-height:1.2;margin:0;color:var(--brand-2)}
+  .sub{color:var(--gold);font-weight:500;font-size:14px;letter-spacing:.6px;text-transform:uppercase;margin-top:6px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 20px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  .intro{font-size:14.5px;color:var(--muted);margin:0 0 18px;padding-bottom:16px;border-bottom:1px dashed var(--line)}
+  label{display:block;font-weight:600;font-size:14px;margin:0 0 6px}
+  input{width:100%;font:inherit;font-size:17px;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);outline:none;transition:border-color .15s}
+  input:focus{border-color:var(--brand)}
+  .row{display:flex;gap:8px}
+  .row .cc{flex:0 0 84px;text-align:center}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:14px;padding:13px 16px;font:inherit;font-weight:600;font-size:16px;border:0;border-radius:10px;background:var(--brand);color:#fff;cursor:pointer;text-decoration:none}
+  .btn:hover{background:var(--brand-2)} .btn:disabled{opacity:.6;cursor:default}
+  .btn.ghost{background:transparent;color:var(--brand);border:1.5px solid var(--brand)}
+  .btn.wa{background:var(--wa);font-size:17px;padding:15px}
+  .btn.wa:hover{background:#18924a}
+  .who{background:var(--soft);border-radius:12px;padding:14px 16px;margin:16px 0}
+  .who .n{font-weight:600;font-size:17px}
+  .who .m{color:var(--muted);font-size:14px;margin-top:2px}
+  .msg{border-radius:10px;padding:12px 14px;font-size:14.5px;margin-top:14px}
+  .msg.err{background:var(--err-bg);color:var(--err)}
+  .hint{font-size:13px;color:var(--muted);margin-top:6px}
+  .done{text-align:center}
+  .tick{width:60px;height:60px;border-radius:50%;background:var(--soft);color:var(--brand);display:grid;place-items:center;margin:4px auto 12px}
+  .done h2{font-family:Lora,serif;font-weight:600;font-size:22px;margin:0 0 6px;color:var(--brand-2)}
+  .done p{color:var(--muted);margin:0 0 6px;font-size:15px}
+  .step{font-size:12px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--gold);margin-bottom:10px}
+  .opts{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+  .opt{flex:1 1 calc(33% - 8px);min-width:92px;padding:10px 8px;font:inherit;font-size:15px;font-weight:500;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);cursor:pointer;text-align:center}
+  .opt.on{border-color:var(--brand);background:var(--soft);color:var(--brand-2);font-weight:600}
+  .dw{text-align:center;margin-top:18px;font-size:12px;color:var(--muted)}
+  .dw button{font:inherit;color:inherit;background:none;border:0;padding:4px 6px;cursor:pointer;border-radius:6px}
+  .dw button:hover{color:var(--brand)}
+  .dw b{font-weight:600;color:var(--brand-2)}
+  .dw a{color:var(--brand);text-decoration:none;display:inline-block;margin-top:2px}
+  .hide{display:none!important}
+  .spin{width:18px;height:18px;border:2px solid rgba(255,255,255,.5);border-top-color:#fff;border-radius:50%;animation:s .7s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .loading{text-align:center;color:var(--muted);padding:30px 0}
+  footer{text-align:center;color:var(--muted);font-size:12.5px;margin-top:22px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="mark">TNC</div>
+    <h1 id="title">TNC – 12 Umoor Barnamaj</h1>
+    <div class="sub" id="subtitle">Taisir un Nikah Committee</div>
+  </header>
+
+  <div class="card">
+    <div id="loading" class="loading">Loading…</div>
+
+    <div id="closed" class="hide"><p id="closedMsg" style="text-align:center;margin:0"></p></div>
+
+    <!-- Step 1: ITS -->
+    <div id="s1" class="hide">
+      <p class="intro" id="intro"></p>
+      <div class="step">Step 1 of 2</div>
+      <label for="its">ITS ID</label>
+      <input id="its" inputmode="numeric" maxlength="8" placeholder="8-digit ITS ID" autocomplete="off">
+      <button class="btn" id="findBtn">Continue</button>
+      <div id="err1" class="msg err hide"></div>
+    </div>
+
+    <!-- Step 2: details + WhatsApp -->
+    <div id="s2" class="hide">
+      <div class="step">Step 2 of 2</div>
+      <div class="who">
+        <div class="n" id="wName"></div>
+        <div class="m" id="wMeta"></div>
+      </div>
+      <label>Marital status</label>
+      <div class="opts" id="marital" role="radiogroup"></div>
+      <label for="wa">WhatsApp number</label>
+      <div class="row">
+        <input id="cc" class="cc" value="+91" inputmode="tel">
+        <input id="wa" inputmode="tel" placeholder="98765 43210" autocomplete="tel-national">
+      </div>
+      <div class="hint">All updates will be shared on WhatsApp.</div>
+      <button class="btn" id="regBtn">Register</button>
+      <button class="btn ghost" id="backBtn">Not you? Change ITS</button>
+      <div id="err2" class="msg err hide"></div>
+    </div>
+
+    <!-- Step 3: done / join group -->
+    <div id="s3" class="hide done">
+      <div class="tick"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+      <h2 id="doneTitle">Registration complete</h2>
+      <p id="doneText"></p>
+      <p style="font-weight:600;color:var(--ink);margin-top:14px">One last step – join the WhatsApp group</p>
+      <p>All details and updates will be shared there.</p>
+      <a class="btn wa" id="joinBtn" target="_blank" rel="noopener">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.7.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z"/></svg>
+        Join WhatsApp Group
+      </a>
+      <button class="btn ghost hide" id="confirmBtn">✓ I have joined the group</button>
+      <p id="thanks" class="hide" style="margin-top:14px;color:var(--brand);font-weight:600">Shukran! Jazakallah khair.</p>
+    </div>
+  </div>
+  <footer>Taisir un Nikah Committee</footer>
+  <div class="dw" id="dw"><button type="button" id="dwBtn" aria-expanded="false">Developed by <b>DignityWorks</b></button><div id="dwMail" class="hide"></div></div>
+</div>
+
+<script>
+const API_URL = 'PASTE_WEB_APP_URL_HERE';
+const $ = id => document.getElementById(id);
+let current = { its: '' };
+let marital = '';
+const MARITAL = ['Single', 'Engaged', 'Married', 'Divorced', 'Widowed'];
+
+async function api(payload) {
+  const r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
+  return r.json();
+}
+function show(id) { ['loading','closed','s1','s2','s3'].forEach(s => $(s).classList.toggle('hide', s !== id)); }
+function err(box, text) { $(box).textContent = text || ''; $(box).classList.toggle('hide', !text); }
+function busy(btn, on, label) {
+  btn.disabled = on;
+  btn.innerHTML = on ? '<span class="spin"></span>' : label;
+}
+
+async function init() {
+  try {
+    const c = await api({ action: 'config' });
+    $('title').textContent = c.title; $('subtitle').textContent = c.subtitle;
+    document.title = c.title;
+    $('intro').textContent = c.intro;
+    $('cc').value = c.cc || '+91';
+    if (!c.open) { $('closedMsg').textContent = c.closedMessage; show('closed'); return; }
+    show('s1'); $('its').focus();
+  } catch (e) {
+    $('loading').textContent = 'Could not load. Please check your connection and refresh.';
+  }
+}
+
+$('its').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 8); err('err1'); });
+$('its').addEventListener('keydown', e => { if (e.key === 'Enter') $('findBtn').click(); });
+$('wa').addEventListener('keydown', e => { if (e.key === 'Enter') $('regBtn').click(); });
+
+$('findBtn').onclick = async () => {
+  const its = $('its').value.trim();
+  if (its.length !== 8) return err('err1', 'Please enter your 8-digit ITS ID.');
+  busy($('findBtn'), true);
+  try {
+    const r = await api({ action: 'lookup', its });
+    if (!r.ok) return err('err1', r.error);
+    current = { its, name: r.name };
+    if (r.already) return showDone(r.name, r.groupLink, true);
+    $('wName').textContent = r.name;
+    renderMarital(r.maritalOptions || MARITAL, r.marital || '');
+    $('wMeta').textContent = ['ITS ' + its, r.age ? 'Age ' + r.age : '', r.jamaat].filter(Boolean).join(' · ');
+    show('s2'); $('wa').focus();
+  } catch (e) { err('err1', 'Something went wrong. Please try again.'); }
+  finally { busy($('findBtn'), false, 'Continue'); }
+};
+
+function renderMarital(opts, pre) {
+  marital = pre;
+  $('marital').innerHTML = opts.map(o => `<button type="button" class="opt${o === pre ? ' on' : ''}" role="radio" aria-checked="${o === pre}" data-v="${o}">${o}</button>`).join('');
+}
+$('marital').onclick = e => {
+  const b = e.target.closest('.opt'); if (!b) return;
+  marital = b.dataset.v; err('err2');
+  $('marital').querySelectorAll('.opt').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', on); });
+};
+
+$('backBtn').onclick = () => { err('err2'); $('wa').value = ''; show('s1'); $('its').select(); };
+
+$('regBtn').onclick = async () => {
+  const wa = $('wa').value.replace(/\D/g, '');
+  if (!marital) return err('err2', 'Please select your marital status.');
+  if (wa.length < 6) return err('err2', 'Please enter your WhatsApp number.');
+  err('err2'); busy($('regBtn'), true);
+  try {
+    const r = await api({ action: 'register', its: current.its, cc: $('cc').value, whatsapp: $('wa').value, marital });
+    if (!r.ok) return err('err2', r.error);
+    showDone(r.name || current.name, r.groupLink, r.already);
+  } catch (e) { err('err2', 'Something went wrong. Please try again.'); }
+  finally { busy($('regBtn'), false, 'Register'); }
+};
+
+function showDone(name, link, already) {
+  $('doneTitle').textContent = already ? 'Already registered' : 'Registration complete';
+  $('doneText').textContent = (name ? name + ', ' : '') + (already ? 'you have already registered with this ITS ID.' : 'shukran for registering.');
+  $('joinBtn').href = link;
+  show('s3');
+}
+
+$('joinBtn').addEventListener('click', () => {
+  api({ action: 'clicked', its: current.its }).catch(() => {});
+  setTimeout(() => $('confirmBtn').classList.remove('hide'), 800);
+});
+$('confirmBtn').onclick = () => {
+  api({ action: 'confirm', its: current.its }).catch(() => {});
+  $('confirmBtn').classList.add('hide'); $('thanks').classList.remove('hide');
+};
+
+init();
+
+/* DignityWorks credit – email revealed on tap */
+(function () {
+  const btn = document.getElementById('dwBtn'), box = document.getElementById('dwMail');
+  btn.onclick = () => {
+    if (!box.innerHTML) { const m = ['dignityworks53', 'gmail.com'].join('@'); box.innerHTML = '<a href="mailto:' + m + '">' + m + '</a>'; }
+    const open = box.classList.toggle('hide') === false; btn.setAttribute('aria-expanded', open);
+  };
+})();
+</script>
+</body>
+</html>
