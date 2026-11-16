@@ -54,11 +54,19 @@
   .msgbox .acts{margin-top:8px}
   .small{font-size:12.5px;color:var(--muted)}
   .empty{text-align:center;color:var(--muted);padding:30px}
-  .tools select{flex:0 0 190px;width:auto}
+  .tools select{flex:1 1 170px;width:auto;min-width:0}
+  .exp{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .exp .small b{color:var(--ink)}
+  .exp .acts{margin-top:0}
   .mbreak{display:flex;gap:6px;flex-wrap:wrap;margin:-6px 0 14px}
   .mb{font-size:12.5px;padding:4px 10px;border-radius:12px;background:#fff;border:1px solid var(--line);color:var(--muted);cursor:pointer}
   .mb b{color:var(--ink);font-weight:600}
   .mb.on{border-color:var(--brand);color:var(--brand)}
+  .seg{display:inline-flex;border:1.5px solid var(--line);border-radius:22px;background:#fff;padding:3px;margin-bottom:10px}
+  .seg button{font:inherit;font-size:13px;font-weight:500;border:0;background:none;color:var(--ink);padding:6px 14px;border-radius:18px;cursor:pointer}
+  .seg button b{font-weight:600;color:var(--muted);margin-left:3px}
+  .seg button.on{background:var(--brand);color:#fff}
+  .seg button.on b{color:#d9ebe5}
   .tag{display:inline-block;font-size:11.5px;font-weight:600;padding:1px 7px;border-radius:8px;background:#f3eee3;color:#7a5a1c;margin-left:6px;vertical-align:1px}
   .dw{text-align:center;margin-top:18px;font-size:12px;color:var(--muted)}
   .dw button{font:inherit;color:inherit;background:none;border:0;padding:4px 6px;cursor:pointer;border-radius:6px}
@@ -102,7 +110,6 @@
         <button class="btn sm" id="addBtn">+ Add registration</button>
         <button class="btn ghost sm" id="refreshBtn">↻ Refresh</button>
         <button class="btn ghost sm" id="bulkBtn">Mark joined from group list</button>
-        <button class="btn ghost sm" id="csvBtn">Download CSV</button>
         <button class="btn ghost sm" id="logoutBtn">Log out</button>
       </div>
     </div>
@@ -118,7 +125,15 @@
     <div class="mbreak" id="mbreak"></div>
     <div class="tools">
       <input id="q" placeholder="Search name, ITS, number, jamaat…">
-      <select id="mf"><option value="">All marital status</option></select>
+    </div>
+    <div class="tools">
+      <select id="mohF" aria-label="Jamaat"><option value="">All jamaats</option></select>
+      <select id="mf" aria-label="Marital status"><option value="">All marital status</option></select>
+    </div>
+    <div class="seg" id="gSeg" role="radiogroup" aria-label="Gender">
+      <button type="button" class="on" data-g="" role="radio" aria-checked="true">All</button>
+      <button type="button" data-g="M" role="radio" aria-checked="false">Male <b id="gM">0</b></button>
+      <button type="button" data-g="F" role="radio" aria-checked="false">Female <b id="gF">0</b></button>
     </div>
     <div class="chips" id="chips">
       <button class="chip on" data-f="all">All</button>
@@ -127,7 +142,13 @@
       <button class="chip" data-f="self">Says joined (unverified)</button>
       <button class="chip" data-f="joined">Joined ✓</button>
     </div>
-    <div class="small" id="count" style="margin-bottom:8px"></div>
+    <div class="exp">
+      <div class="small" id="count"></div>
+      <div class="acts">
+        <button class="btn ghost sm" id="xlsBtn">⬇ Excel</button>
+        <button class="btn ghost sm" id="pdfBtn">⬇ PDF</button>
+      </div>
+    </div>
     <div id="list"></div>
   </div>
   <div class="dw" id="dw"><button type="button" id="dwBtn" aria-expanded="false">Developed by <b>DignityWorks</b></button><div id="dwMail" class="hide"></div></div>
@@ -165,8 +186,9 @@
   </div>
   <div class="grid2">
     <div class="fld"><label for="aMarital">Marital status</label><select id="aMarital"></select></div>
-    <div class="fld"><label for="aJamaat">Jamaat</label><input id="aJamaat"></div>
+    <div class="fld"><label for="aJamaat">Jamaat</label><input id="aJamaat" list="mohList" placeholder="Select or type"></div>
   </div>
+  <datalist id="mohList"></datalist>
   <div class="fld"><label for="aWa">WhatsApp number</label>
     <div style="display:flex;gap:6px"><input id="aCc" value="+91" style="flex:0 0 72px;text-align:center"><input id="aWa" inputmode="tel" placeholder="98765 43210"></div></div>
   <div class="fld"><label for="aNote">Note (optional)</label><input id="aNote" placeholder="e.g. referred by Amil Saheb"></div>
@@ -230,6 +252,7 @@ async function refresh() {
   try {
     const r = await api({ action: 'admin_list' });
     DATA = r.list; TPL = r.tpl;
+    fillPlaceFilters();
     if (!MOPTS.length) { MOPTS = r.maritalOptions || []; $('mf').innerHTML = '<option value="">All marital status</option>' + MOPTS.map(o => `<option>${o}</option>`).join('') + '<option value="-">Not given</option>'; } $('dTitle').textContent = r.title; document.title = r.title + ' · Admin';
     render();
   } catch (e) { toast(e.message); }
@@ -270,18 +293,13 @@ function render() {
     return `<span class="mb${$('mf').value === o ? ' on' : ''}" data-m="${o}">${o} <b>${n}</b></span>`;
   }).join('');
 
-  const q = $('q').value.trim().toLowerCase(), mf = $('mf').value;
-  const rows = DATA.filter(p => {
-    if (mf === '-' && p.marital) return false;
-    if (mf && mf !== '-' && p.marital !== mf) return false;
-    if (FILTER === 'not' && joined(p)) return false;
-    if (FILTER === 'never' && (joined(p) || p.reminders > 0)) return false;
-    if (FILTER === 'self' && !(p.self && !p.verified)) return false;
-    if (FILTER === 'joined' && !p.verified) return false;
-    if (!q) return true;
-    return [p.name, p.its, p.wa, p.jamaat].join(' ').toLowerCase().includes(q);
-  });
-  $('count').textContent = rows.length + ' shown';
+  $('gM').textContent = DATA.filter(p => p.gender === 'M').length;
+  $('gF').textContent = DATA.filter(p => p.gender === 'F').length;
+
+  const rows = filtered();
+  const where = filterLabels().join(' · ');
+  $('count').innerHTML = `<b>${rows.length}</b> shown` + (where ? ' · ' + esc(where) : '');
+  $('xlsBtn').disabled = $('pdfBtn').disabled = !rows.length;
   $('list').innerHTML = rows.length ? rows.map(row).join('') : '<div class="empty">Nobody here.</div>';
 }
 
@@ -319,6 +337,14 @@ function row(p) {
 
 $('q').oninput = render;
 $('mf').onchange = render;
+let GENDER = '';
+$('gSeg').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  GENDER = b.dataset.g; OPEN = null;
+  $('gSeg').querySelectorAll('button').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', on); });
+  render();
+};
+$('mohF').onchange = render;
 $('mbreak').onclick = e => {
   const b = e.target.closest('.mb'); if (!b) return;
   $('mf').value = $('mf').value === b.dataset.m ? '' : b.dataset.m; render();
@@ -401,6 +427,7 @@ function aMsg(text, cls) { $('aInfo').textContent = text || ''; $('aInfo').class
 function aErr(text) { $('aErr').textContent = text || ''; $('aErr').classList.toggle('hide', !text); }
 $('addBtn').onclick = () => {
   ['aIts','aName','aAge','aJamaat','aWa','aNote'].forEach(id => $(id).value = '');
+  $('mohList').innerHTML = distinct('jamaat').map(v => `<option value="${esc(v)}">`).join('');
   $('aGender').value = ''; $('aCc').value = '+91'; $('aNoIts').checked = false;
   $('aMarital').innerHTML = '<option value="">Select</option>' + (MOPTS.length ? MOPTS : MARITAL_ALL).map(o => `<option>${o}</option>`).join('');
   $('aItsWrap').classList.remove('hide'); aMsg(); aErr();
@@ -424,7 +451,7 @@ $('aLook').onclick = async () => {
       const m = r.member;
       $('aName').value = m.name || ''; $('aAge').value = m.age ?? ''; $('aGender').value = m.gender || '';
       $('aJamaat').value = m.jamaat || ''; if (m.marital) $('aMarital').value = m.marital;
-      aMsg('Found in DataBase – details filled in. Check and complete the rest.' + (m.age !== null && m.age < 17 ? ' Note: age is under 17.' : ''), m.age !== null && m.age < 17 ? 'nl-warn' : 'nl-ok');
+      aMsg('Found in DataBase – details filled in. Check and complete the rest.' + (r.outOfRange ? ` Note: age ${m.age} is outside ${r.min}–${r.max ?? '+'}.` : ''), r.outOfRange ? 'nl-warn' : 'nl-ok');
     } else {
       aMsg('Not in DataBase – please enter the details below.', 'nl-warn');
     }
@@ -435,6 +462,7 @@ $('aSave').onclick = async () => {
   aErr();
   const noIts = $('aNoIts').checked;
   if (!noIts && $('aIts').value.length !== 8) return aErr('Enter an 8-digit ITS ID, or tick "Does not have an ITS ID".');
+  if (!$('aJamaat').value.trim()) return aErr('Please enter the jamaat.');
   $('aSave').disabled = true;
   try {
     const r = await api({ action: 'admin_add', noIts, its: $('aIts').value, name: $('aName').value, age: $('aAge').value,
@@ -446,15 +474,175 @@ $('aSave').onclick = async () => {
   finally { $('aSave').disabled = false; }
 };
 
-/* ---------- CSV ---------- */
-$('csvBtn').onclick = () => {
-  const head = ['Name','ITS','Age','Gender','Marital Status','Jamaat','WhatsApp','Registered','Added by','Status','Reminders','Last reminded','Note'];
-  const lines = [head].concat(DATA.map(p => [p.name, p.its, p.age, p.gender, p.marital, p.jamaat, p.wa, p.ts, p.source, status(p)[0], p.reminders, p.lastReminded, p.note]));
-  const csv = lines.map(r => r.map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(',')).join('\n');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv' }));
-  a.download = 'TNC_registrations.csv'; a.click();
+/* ---------- filters (shared by list + downloads) ---------- */
+const CHIP_LABEL = { not: 'Not joined', never: 'Never reminded', self: 'Says joined (unverified)', joined: 'Joined' };
+const byText = (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' });
+function distinct(key) { return [...new Set(DATA.map(p => String(p[key] || '').trim()).filter(Boolean))].sort(byText); }
+function fillPlaceFilters() {
+  const sel = $('mohF'), cur = sel.value, vals = distinct('jamaat');
+  sel.innerHTML = '<option value="">All jamaats</option>' + vals.map(v => {
+    const n = DATA.filter(p => String(p.jamaat || '').trim() === v).length;
+    return `<option value="${esc(v)}">${esc(v)} (${n})</option>`;
+  }).join('');
+  sel.value = [...sel.options].some(o => o.value === cur) ? cur : '';
+}
+
+function filtered() {
+  const q = $('q').value.trim().toLowerCase(), mf = $('mf').value;
+  return DATA.filter(p => {
+    if (mf === '-' && p.marital) return false;
+    if (mf && mf !== '-' && p.marital !== mf) return false;
+    if ($('mohF').value && String(p.jamaat || '').trim() !== $('mohF').value) return false;
+    if (GENDER && p.gender !== GENDER) return false;
+    if (FILTER === 'not' && joined(p)) return false;
+    if (FILTER === 'never' && (joined(p) || p.reminders > 0)) return false;
+    if (FILTER === 'self' && !(p.self && !p.verified)) return false;
+    if (FILTER === 'joined' && !p.verified) return false;
+    if (!q) return true;
+    return [p.name, p.its, p.wa, p.jamaat].join(' ').toLowerCase().includes(q);
+  });
+}
+function filterLabels() {
+  const out = [], sel = id => $(id).value;
+  if (sel('mohF')) out.push('Jamaat: ' + sel('mohF'));
+  if (GENDER) out.push(GENDER === 'M' ? 'Male' : 'Female');
+  if (sel('mf')) out.push('Marital: ' + (sel('mf') === '-' ? 'Not given' : sel('mf')));
+  if (CHIP_LABEL[FILTER]) out.push(CHIP_LABEL[FILTER]);
+  if ($('q').value.trim()) out.push('Search: "' + $('q').value.trim() + '"');
+  return out;
+}
+
+/* ---------- downloads ---------- */
+const LIBS = {
+  xlsx: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+  jspdf: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+  autotable: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'
 };
+const loaded = {};
+function loadLib(key) {
+  return loaded[key] || (loaded[key] = new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = LIBS[key];
+    s.onload = res; s.onerror = () => { delete loaded[key]; rej(new Error('Could not load the download tool – check your internet and try again.')); };
+    document.head.appendChild(s);
+  }));
+}
+const plainStatus = p => p.verified ? 'Joined' : p.self ? 'Says joined' : p.clicked ? 'Opened link' : 'Not joined';
+const mohOf = p => String(p.jamaat || '').trim() || '-';
+const placeSort = byText;
+function sortedRows() {
+  return filtered().slice().sort((a, b) => placeSort(mohOf(a), mohOf(b)) || byText(String(a.name), String(b.name)));
+}
+function fileName(ext) {
+  const parts = ['TNC'];
+  if ($('mohF').value) parts.push($('mohF').value);
+  if (GENDER) parts.push(GENDER === 'M' ? 'Male' : 'Female');
+  if ($('mf').value) parts.push($('mf').value === '-' ? 'NoMarital' : $('mf').value);
+  if (CHIP_LABEL[FILTER]) parts.push(CHIP_LABEL[FILTER]);
+  const d = new Date(), stamp = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  return parts.join('_').replace(/[^\w\-]+/g, '-').replace(/-+/g, '-').slice(0, 80) + '_' + stamp + '.' + ext;
+}
+function summary(rows) {
+  const groups = {};
+  rows.forEach(p => {
+    const k = mohOf(p), g = groups[k] || (groups[k] = { moh: k, total: 0, joined: 0, m: {} });
+    g.total++; if (joined(p)) g.joined++;
+    if (p.marital) g.m[p.marital] = (g.m[p.marital] || 0) + 1;
+  });
+  return Object.values(groups).sort((a, b) => placeSort(a.moh, b.moh));
+}
+const MCOLS = () => (MOPTS.length ? MOPTS : ['Single', 'Engaged', 'Married', 'Divorced', 'Widowed']);
+async function busyRun(btn, fn) {
+  const label = btn.innerHTML; btn.disabled = true; btn.innerHTML = 'Preparing…';
+  try { await fn(); } catch (e) { toast(e.message || 'Download failed'); }
+  finally { btn.innerHTML = label; btn.disabled = !filtered().length; }
+}
+
+$('xlsBtn').onclick = () => busyRun($('xlsBtn'), async () => {
+  await loadLib('xlsx');
+  const rows = sortedRows();
+  const head = ['Sr', 'Name', 'ITS / Ref', 'Age', 'Gender', 'Marital Status', 'Jamaat'].concat(
+    ['WhatsApp', 'Group Status', 'Reminders', 'Last Reminded', 'Registered', 'Added By', 'Note']);
+  const body = rows.map((p, i) => [i + 1, p.name, p.its, p.age === '' ? '' : Number(p.age) || p.age, p.gender, p.marital, p.jamaat]
+    .concat([p.wa, plainStatus(p), p.reminders, p.lastReminded, p.ts, p.source, p.note]));
+  const ws = XLSX.utils.aoa_to_sheet([head].concat(body));
+  ws['!cols'] = head.map((h, c) => ({ wch: Math.min(40, Math.max(h.length, ...body.map(r => String(r[c] ?? '').length)) + 2) }));
+  ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: body.length, c: head.length - 1 } }) };
+  ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+
+  const mc = MCOLS(), sum = summary(rows);
+  const sHead = ['Jamaat', 'Registered', 'Joined group', 'Not joined'].concat(mc);
+  const sBody = sum.map(g => [g.moh, g.total, g.joined, g.total - g.joined].concat(mc.map(m => g.m[m] || 0)));
+  const tot = ['Total'].concat(sHead.slice(1).map((_, c) => sBody.reduce((a, r) => a + r[c + 1], 0)));
+  const info = [[$('dTitle').textContent], ['Filters: ' + (filterLabels().join(' · ') || 'None (everyone)')], ['Downloaded: ' + new Date().toLocaleString()], []];
+  const ss = XLSX.utils.aoa_to_sheet(info.concat([sHead], sBody, [tot]));
+  ss['!cols'] = sHead.map((h, c) => ({ wch: c === 0 ? Math.max(14, ...sum.map(g => g.moh.length)) + 2 : Math.max(h.length, 6) + 2 }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Registrations');
+  XLSX.utils.book_append_sheet(wb, ss, 'Jamaat Summary');
+  XLSX.writeFile(wb, fileName('xlsx'));
+});
+
+$('pdfBtn').onclick = () => busyRun($('pdfBtn'), async () => {
+  await loadLib('jspdf'); await loadLib('autotable');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 36;
+  const pdfText = s => String(s ?? '').replace(/[\u2013\u2014]/g, '-').replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x20-\x7E\xA0-\xFF]/g, '');
+  const rows = sortedRows(), sum = summary(rows), grouped = !$('mohF').value && sum.length > 1;
+  const showMoh = !grouped && !$('mohF').value;
+  const brand = [15, 92, 77], gold = [184, 137, 47];
+
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(...brand);
+  doc.text(pdfText($('dTitle').textContent), M, M + 6);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(90);
+  const f = filterLabels();
+  doc.text(pdfText((f.length ? f.join('  |  ') : 'All registrations') + '   ·   ' + rows.length + ' people   ·   ' + new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })), M, M + 22);
+  let y = M + 34;
+
+  if (sum.length > 1) {
+    const mc = MCOLS();
+    doc.autoTable({
+      startY: y, margin: { left: M, right: M }, theme: 'grid',
+      head: [['Jamaat', 'Registered', 'Joined', 'Not joined'].concat(mc)],
+      body: sum.map(g => [pdfText(g.moh), g.total, g.joined, g.total - g.joined].concat(mc.map(m => g.m[m] || 0)))
+        .concat([['Total'].concat([0, 1, 2].map(i => sum.reduce((a, g) => a + [g.total, g.joined, g.total - g.joined][i], 0)), mc.map(m => sum.reduce((a, g) => a + (g.m[m] || 0), 0)))]),
+      styles: { fontSize: 8.5, cellPadding: 3, halign: 'center' }, columnStyles: { 0: { halign: 'left' } },
+      headStyles: { fillColor: brand, textColor: 255 },
+      didParseCell: d => { if (d.section === 'body' && d.row.index === sum.length) { d.cell.styles.fontStyle = 'bold'; d.cell.styles.fillColor = [238, 245, 242]; } }
+    });
+    y = doc.lastAutoTable.finalY + 16;
+  }
+
+  const cols = ['#', 'Name', 'ITS / Ref', 'Age', 'M/F', 'Marital'].concat(showMoh ? ['Jamaat'] : [], ['WhatsApp', 'Status']);
+  const line = (p, i) => [i, pdfText(p.name), p.its, p.age, p.gender, p.marital].concat(showMoh ? [pdfText(p.jamaat)] : [], [p.wa, plainStatus(p)]);
+  const body = [];
+  if (grouped) {
+    sum.forEach(g => {
+      body.push([{ content: pdfText(g.moh) + '   (' + g.total + ')', colSpan: cols.length, styles: { fontStyle: 'bold', halign: 'left', fontSize: 9.5, fillColor: [246, 242, 234], textColor: gold } }]);
+      rows.filter(p => mohOf(p) === g.moh).forEach((p, i) => body.push(line(p, i + 1)));
+    });
+  } else rows.forEach((p, i) => body.push(line(p, i + 1)));
+
+  doc.autoTable({
+    startY: y, margin: { left: M, right: M, bottom: 40 }, theme: 'striped', head: [cols], body,
+    styles: { fontSize: 8.5, cellPadding: 3.5, overflow: 'linebreak' },
+    headStyles: { fillColor: brand, textColor: 255 },
+    columnStyles: { 0: { cellWidth: 26, halign: 'right' }, 1: { cellWidth: 'auto' } },
+    didParseCell: d => {
+      if (d.section !== 'body' || d.column.index !== cols.length - 1 || typeof d.cell.raw !== 'string') return;
+      d.cell.styles.textColor = d.cell.raw === 'Joined' ? [30, 122, 74] : d.cell.raw === 'Not joined' ? [163, 53, 43] : [148, 101, 15];
+    }
+  });
+
+  const pages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) {
+    doc.setPage(i); doc.setFontSize(8); doc.setTextColor(140);
+    doc.text('Developed by DignityWorks', M, H - 18);
+    doc.text('Page ' + i + ' of ' + pages, W - M, H - 18, { align: 'right' });
+  }
+  doc.save(fileName('pdf'));
+});
 
 const saved = load('tnc_pass');
 if (saved) login(saved);
